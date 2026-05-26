@@ -13,6 +13,9 @@ bld/
 # Chart Results
 [Ff]ile-based-app/[Cc]harts/
 
+# Markdown Results
+[Ff]ile-based-app/[Mm]arkdown/
+
 # NuGet Packages
 *.nupkg
 # The packages folder can be ignored because of Package Restore
