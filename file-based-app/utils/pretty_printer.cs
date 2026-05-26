@@ -3,6 +3,7 @@
 #:property TargetFramework=net10.0
 #:property LogLevel=$([MSBuild]::ValueOrDefault('$(LOG_LEVEL)', 'Information'))
 #:property OutputPath=./bin
+//#:property OutputType=library 
 
 #:package Microsoft.Data.Analysis@0.22.1
 

@@ -6,6 +6,8 @@
 #:property LogLevel=$([MSBuild]::ValueOrDefault('$(LOG_LEVEL)', 'Information'))
 #:property OutputPath=./bin
 #:property ExperimentalFileBasedProgramEnableTransitiveDirectives=true
+// target types: 'exe', 'winexe', 'library', or 'module'
+#:property OutputType=exe
 
 #:package Microsoft.Data.Analysis@0.22.1
 #:package Plotly.NET.Interactive@5.0.0
