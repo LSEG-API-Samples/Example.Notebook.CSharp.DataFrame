@@ -1,13 +1,19 @@
+#!/usr/bin/env dotnet
+
 // #:sdk Microsoft.NET.Sdk@10.0.300
 
 #:property TargetFramework=net10.0
 #:property LogLevel=$([MSBuild]::ValueOrDefault('$(LOG_LEVEL)', 'Information'))
 #:property OutputPath=./bin
-
+#:property ExperimentalFileBasedProgramEnableTransitiveDirectives=true
+// target types: 'exe', 'winexe', 'library', or 'module'
+#:property OutputType=exe
 
 #:package Microsoft.Data.Analysis@0.22.1
 #:package Plotly.NET.Interactive@5.0.0
 #:package Microsoft.DotNet.Interactive.Formatting@1.0.0-beta.25070.1
+
+#:include ./utils/pretty_printer.cs
 
 using Plotly.NET;
 using static Plotly.NET.StyleParam;
@@ -16,6 +22,18 @@ using Microsoft.Data.Analysis;
 using System.Linq;
 using Microsoft.DotNet.Interactive.Formatting;
 using System.Text;
+
+string chartsDir = "./charts";
+if (!Directory.Exists(chartsDir))
+{
+    Directory.CreateDirectory(chartsDir);
+}
+
+string markdownDir = "./markdown";
+if (!Directory.Exists(markdownDir))
+{
+    Directory.CreateDirectory(markdownDir);
+}
 
 Formatter.Register<DataFrameRow>(rows =>
     {
@@ -66,7 +84,9 @@ var df1 = new DataFrame(date);
 
 Console.WriteLine();
 Console.WriteLine("InMemory DataFrame Loaded:");
-Console.WriteLine(df0);
+//Console.WriteLine(df0);
+df0.PrettyPrint();
+File.WriteAllText(markdownDir + "/df0-table.md", df0.ToMarkdown());
 
 Console.WriteLine();
 Console.WriteLine("Access data by indices:");
@@ -91,7 +111,7 @@ Console.WriteLine("Access column data:");
 Console.WriteLine("2nd column: ");
 Console.WriteLine(df0.Columns["Data"]);
 Console.WriteLine("Increase all data in the column by ten: ");
-df0.Columns["Data"]= df0.Columns["Data"]+10;
+df0.Columns["Data"] = df0.Columns["Data"] + 10;
 Console.WriteLine("2nd column: ");
 Console.WriteLine(df0.Columns[1]);
 
@@ -99,40 +119,46 @@ Console.WriteLine();
 Console.WriteLine("Add a new column:");
 df0.Columns.Add(new PrimitiveDataFrameColumn<int>("Data1", df0.Rows.Count()));
 df0.Columns["Data1"].FillNulls(10, true);
-Console.WriteLine(df0);
+//Console.WriteLine(df0);
+df0.PrettyPrint();
+File.WriteAllText(markdownDir + "/df0-new-column-table.md", df0.ToMarkdown());
 
 Console.WriteLine();
 Console.WriteLine("Append a new row:");
-df0.Append(new List<KeyValuePair<string, object>>() { 
+df0.Append(new List<KeyValuePair<string, object>>() {
     new KeyValuePair<string, object>("Date", DateTime.Now),
     new KeyValuePair<string, object>("Data", 12),
     new KeyValuePair<string, object>("Data1", 50)
 }, true);
-Console.WriteLine(df0.Tail(10));
+//Console.WriteLine(df0.Tail(10));
+df0.Tail(10).PrettyPrint();
 
 Console.WriteLine();
 Console.WriteLine("Manipulate the DataFrame...");
 Console.WriteLine("Sorting: Order By 'Data'");
-Console.WriteLine(df0.OrderBy("Data"));
+//Console.WriteLine(df0.OrderBy("Data"));
+df0.OrderBy("Data").PrettyPrint();
 
 Console.WriteLine("Grouping: Group By 'Data'");
 var groupByData = df0.GroupBy("Data");
 Console.WriteLine(groupByData.Count().OrderBy("Data"));
 
 Console.WriteLine("Filtering: Filter By 'Data' greater than fifty");
-Console.WriteLine(df0.Filter(df0.Columns["Data"].ElementwiseGreaterThan(50)).OrderBy("Data"));
+//Console.WriteLine(df0.Filter(df0.Columns["Data"].ElementwiseGreaterThan(50)).OrderBy("Data"));
+df0.Filter(df0.Columns["Data"].ElementwiseGreaterThan(50)).OrderBy("Data").PrettyPrint();
 
 Console.WriteLine("Merging: Merge 'Date' from two dataframes");
 //var dateformat = "dd/MM/yyyy hh:mm:ss tt";
 //df0.Columns["Date"] = 
     //new PrimitiveDataFrameColumn<DateTime>("Date", 
         //df0.Columns["Date"]
-            //.Cast<object>()
-            //.ToList()
-            //.Select(x => DateTime.ParseExact(x.ToString(), dateformat, System.Globalization.CultureInfo.InvariantCulture))
-            //.Cast<DateTime>()); 
-                
-Console.WriteLine(df1.Merge<DateTime>(df0, "Date", "Date"));
+        //.Cast<object>()
+        //.ToList()
+        //.Select(x => DateTime.ParseExact(x.ToString(), dateformat, System.Globalization.CultureInfo.InvariantCulture))
+        //.Cast<DateTime>()); 
+
+//Console.WriteLine(df1.Merge<DateTime>(df0, "Date", "Date"));
+df1.Merge<DateTime>(df0, "Date", "Date").PrettyPrint();
 
 Console.WriteLine();
 Console.WriteLine("Loading CSV Data...");
@@ -143,12 +169,6 @@ Console.WriteLine(df2.Info());
 
 Console.WriteLine();
 Console.WriteLine("Generating Charts...");
-
-string chartsDir = "./charts";
-if (!Directory.Exists(chartsDir))
-{
-    Directory.CreateDirectory(chartsDir);
-}
 
 // Line Chart
 Title title0 = Title.init(X: 0.5, Text: "Open Price Line Chart");
@@ -166,50 +186,50 @@ chart1.SaveHtml(chartsDir + "/line-chart.html");
 Console.WriteLine("Charts: Line Chart Created");
 
 // Line Chart with Mulitple Lines
-Title title1 = Title.init(X:0.5, Text: "Open and Close Price Line Chart");
+Title title1 = Title.init(X: 0.5, Text: "Open and Close Price Line Chart");
 var dateData1 = df2.Columns["Date"].Cast<DateTime>().ToArray();
 var openData1 = df2.Columns["Open"].Cast<Single>().ToArray();
 var closeData1 = df2.Columns["Close"].Cast<Single>();
 
-var multiChart = Chart.Combine(new [] {
+var multiChart = Chart.Combine(new[] {
     Chart2D.Chart.Line<DateTime, Single, bool>(dateData1, openData1,true,Name: "Open")
         .WithMarkerStyle(Symbol: StyleParam.MarkerSymbol.Square),
     Chart2D.Chart.Line<DateTime, Single, bool>(dateData1, closeData1, true, Name: "Close")
 }).WithSize(1000, 500)
     .WithMarker(Marker.init(Size: 8))
-    .WithXAxisStyle(title: Title.init(Text:"Date"))
-    .WithYAxisStyle(title: Title.init(Text:"Price (USD)"))
+    .WithXAxisStyle(title: Title.init(Text: "Date"))
+    .WithYAxisStyle(title: Title.init(Text: "Price (USD)"))
     .WithLayout(Layout.init<bool>(Title: title1));
 
 multiChart.SaveHtml(chartsDir + "/line-chart-with-multiple-lines.html");
 Console.WriteLine("Charts: Line Chart with Mulitple Lines Created");
 
 // Bar Chart
-Title title2 = Title.init(X:0.5, Text: "Volume");
+Title title2 = Title.init(X: 0.5, Text: "Volume");
 var dateData2 = df2.Columns["Date"].Cast<DateTime>().ToArray();
 var volumeData2 = df2.Columns["Volume"].Cast<Single>().ToArray();
 
 var columnChart = Chart2D.Chart.Column<Single, DateTime, bool, bool, bool>(volumeData2, dateData2)
     .WithSize(1000, 500)
-    .WithXAxisStyle(title: Title.init(Text:"Date"))
-    .WithYAxisStyle(title: Title.init(Text:"Unit"))
+    .WithXAxisStyle(title: Title.init(Text: "Date"))
+    .WithYAxisStyle(title: Title.init(Text: "Unit"))
     .WithLayout(Layout.init<bool>(Title: title2));
 
 columnChart.SaveHtml(chartsDir + "/column-chart.html");
 Console.WriteLine("Charts: Column Chart Created");
 
 // Candlestick Chart
-Title title3 = Title.init(X:0.5, Text: "Open, High, Low, Close - OHLC Candlestick Chart");
+Title title3 = Title.init(X: 0.5, Text: "Open, High, Low, Close - OHLC Candlestick Chart");
 var dateData3 = df2.Columns["Date"].Cast<DateTime>().ToArray();
 var openData3 = df2.Columns["Open"].Cast<Single>().ToArray();
 var highData3 = df2.Columns["High"].Cast<Single>().ToArray();
 var lowData3 = df2.Columns["Low"].Cast<Single>().ToArray();
 var closeData3 = df2.Columns["Close"].Cast<Single>().ToArray();
 
-var candleChart = Chart2D.Chart.Candlestick<Single, Single, Single, Single, DateTime, bool>(openData3, highData3, lowData3, closeData3, X:dateData3)
+var candleChart = Chart2D.Chart.Candlestick<Single, Single, Single, Single, DateTime, bool>(openData3, highData3, lowData3, closeData3, X: dateData3)
      .WithSize(1000, 500)
-     .WithXAxisStyle(title: Title.init(Text:"Date"))
-     .WithYAxisStyle(title: Title.init(Text:"Price (USD)"))
+     .WithXAxisStyle(title: Title.init(Text: "Date"))
+     .WithYAxisStyle(title: Title.init(Text: "Price (USD)"))
      .WithLayout(Layout.init<bool>(Title: title3));
 
 candleChart.SaveHtml(chartsDir + "/candlestick-chart.html");
